@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StoryMind - 인생 스토리 가이드 웹 애플리케이션
 
-## Getting Started
+## 🌟 프로젝트 소개
 
-First, run the development server:
+StoryMind는 스토리브랜드 7단계를 통해 사용자의 인생 이야기를 체계적으로 정리하고 마인드맵으로 시각화하는 웹 애플리케이션입니다.
+
+## ✨ 주요 기능
+
+- **🎯 스토리브랜드 7단계 가이드**: 체계적인 인생 스토리 작성 도구
+- **🧠 마인드맵 생성**: 아이디어와 생각을 시각적으로 정리
+- **📊 우선순위 관리**: 개인 센터핀 설정 도구
+- **🔐 Google OAuth 로그인**: 안전한 사용자 인증
+- **📱 반응형 디자인**: 모든 디바이스에서 최적화된 경험
+
+## 🚀 기술 스택
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Authentication**: NextAuth.js, Google OAuth
+- **Styling**: Tailwind CSS
+- **Deployment**: Vercel
+
+## 💻 개발 환경 설정
 
 ```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 빌드
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🌐 배포된 사이트
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **URL**: [https://storyminding.vercel.app](https://storyminding.vercel.app)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📝 환경 변수
 
-## Learn More
+```env
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=https://your-domain.com
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🎨 주요 페이지
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `/`: 스토리브랜드 가이드 메인 페이지
+- `/auth/login`: 로그인 페이지
+- `/mindmap`: 마인드맵 생성 및 관리
+- `/priority-management`: 우선순위 관리 도구
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Made with ❤️ by StoryMind Team
