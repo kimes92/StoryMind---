@@ -6,7 +6,7 @@ console.log("✅ GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID ? "설정됨" 
 console.log("✅ GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET ? "설정됨" : "미설정");
 console.log("✅ NEXTAUTH_SECRET:", process.env.NEXTAUTH_SECRET ? "설정됨" : "미설정");
 
-export const authOptions = {
+const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
