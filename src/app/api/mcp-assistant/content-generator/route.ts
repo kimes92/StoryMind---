@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { db } from '@/app/lib/firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 
 interface ContentRequest {
   type: 'blog' | 'thread' | 'reels';
@@ -23,6 +21,9 @@ interface ContentHistory {
   userId: string;
 }
 
+// 임시 메모리 저장소 (실제 프로덕션에서는 데이터베이스 사용)
+const mockHistory: ContentHistory[] = [];
+
 // 컨텐츠 생성 히스토리 조회
 export async function GET(request: NextRequest) {
   try {
@@ -33,26 +34,20 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const topic = searchParams.get('topic');
 
-    let q = query(
-      collection(db, 'users', userEmail, 'contentHistory'),
-      orderBy('createdAt', 'desc')
-    );
+    let filteredHistory = mockHistory.filter(item => item.userId === userEmail);
 
     if (type) {
-      q = query(q, where('type', '==', type));
+      filteredHistory = filteredHistory.filter(item => item.type === type);
     }
 
     if (topic) {
-      q = query(q, where('topic', '==', topic));
+      filteredHistory = filteredHistory.filter(item => item.topic === topic);
     }
 
-    const snapshot = await getDocs(q);
-    const history = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as ContentHistory[];
+    // 최신순으로 정렬
+    filteredHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    return NextResponse.json({ history });
+    return NextResponse.json({ history: filteredHistory });
   } catch (error) {
     console.error('컨텐츠 히스토리 조회 오류:', error);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
@@ -85,16 +80,12 @@ export async function POST(request: NextRequest) {
       contextualContent = previousContent;
     } else {
       // 같은 주제의 최근 컨텐츠 조회
-      const recentQuery = query(
-        collection(db, 'users', userEmail, 'contentHistory'),
-        where('topic', '==', topic),
-        orderBy('createdAt', 'desc')
-      );
-      const recentSnapshot = await getDocs(recentQuery);
+      const recentContent = mockHistory
+        .filter(item => item.userId === userEmail && item.topic === topic)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
       
-      if (!recentSnapshot.empty) {
-        const recentDoc = recentSnapshot.docs[0];
-        contextualContent = recentDoc.data().content || '';
+      if (recentContent) {
+        contextualContent = recentContent.content;
       }
     }
 
@@ -109,24 +100,22 @@ export async function POST(request: NextRequest) {
       keywords
     });
 
-    // 생성된 컨텐츠를 히스토리에 저장
-    const historyRef = collection(db, 'users', userEmail, 'contentHistory');
-    const docRef = await addDoc(historyRef, {
+    // 생성된 컨텐츠를 메모리에 저장
+    const newContent: ContentHistory = {
+      id: Math.random().toString(36).substr(2, 9),
       type,
       topic,
       content: generatedContent,
       previousContent: contextualContent,
-      style,
-      targetAudience,
-      length,
-      keywords,
       createdAt: new Date().toISOString(),
       userId: userEmail
-    });
+    };
+
+    mockHistory.push(newContent);
 
     return NextResponse.json({
       success: true,
-      id: docRef.id,
+      id: newContent.id,
       content: generatedContent,
       message: '컨텐츠가 생성되었습니다.'
     });
@@ -148,12 +137,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID와 컨텐츠가 필요합니다.' }, { status: 400 });
     }
 
-    const contentRef = doc(db, 'users', userEmail, 'contentHistory', id);
-    await updateDoc(contentRef, {
-      content,
-      feedback,
-      updatedAt: new Date().toISOString()
-    });
+    const contentIndex = mockHistory.findIndex(item => item.id === id && item.userId === userEmail);
+    
+    if (contentIndex === -1) {
+      return NextResponse.json({ error: '컨텐츠를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    mockHistory[contentIndex].content = content;
+    (mockHistory[contentIndex] as any).feedback = feedback;
+    (mockHistory[contentIndex] as any).updatedAt = new Date().toISOString();
 
     return NextResponse.json({
       success: true,
@@ -178,8 +170,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '컨텐츠 ID가 필요합니다.' }, { status: 400 });
     }
 
-    const contentRef = doc(db, 'users', userEmail, 'contentHistory', id);
-    await deleteDoc(contentRef);
+    const contentIndex = mockHistory.findIndex(item => item.id === id && item.userId === userEmail);
+    
+    if (contentIndex === -1) {
+      return NextResponse.json({ error: '컨텐츠를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    mockHistory.splice(contentIndex, 1);
 
     return NextResponse.json({
       success: true,

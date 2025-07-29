@@ -1,26 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { db } from '@/app/lib/firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// 템플릿 목록 조회
+// 임시 메모리 저장소
+const mockTemplates: { [userId: string]: any[] } = {};
+
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession();
-    // 임시로 인증 체크 비활성화 (테스트용)
-    // if (!session?.user?.email) {
-    //   return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    // }
-
-    const userEmail = session?.user?.email || 'test@example.com'; // 테스트용 기본값
-    const templatesRef = collection(db, 'users', userEmail, 'emailTemplates');
-    const snapshot = await getDocs(templatesRef);
+    const { searchParams } = new URL(request.url);
+    const userEmail = searchParams.get('userEmail') || 'test@example.com';
     
-    const templates = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
+    const templates = mockTemplates[userEmail] || [];
+    
     return NextResponse.json({ templates });
   } catch (error) {
     console.error('템플릿 조회 오류:', error);
@@ -28,98 +17,57 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 새 템플릿 생성
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession();
-    // 임시로 인증 체크 비활성화 (테스트용)
-    // if (!session?.user?.email) {
-    //   return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    // }
-
-    const userEmail = session?.user?.email || 'test@example.com'; // 테스트용 기본값
-    const { name, subject, content, type } = await request.json();
-
-    if (!name || !subject || !content || !type) {
-      return NextResponse.json({ error: '모든 필드가 필요합니다.' }, { status: 400 });
+    const { userEmail, title, subject, content, category } = await request.json();
+    
+    if (!userEmail || !title || !subject || !content) {
+      return NextResponse.json({ error: '필수 필드가 누락되었습니다.' }, { status: 400 });
     }
-
-    const templatesRef = collection(db, 'users', userEmail, 'emailTemplates');
-    const docRef = await addDoc(templatesRef, {
-      name,
+    
+    if (!mockTemplates[userEmail]) {
+      mockTemplates[userEmail] = [];
+    }
+    
+    const newTemplate = {
+      id: Math.random().toString(36).substr(2, 9),
+      title,
       subject,
       content,
-      type,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-
+      category: category || 'general',
+      createdAt: new Date().toISOString()
+    };
+    
+    mockTemplates[userEmail].push(newTemplate);
+    
     return NextResponse.json({ 
       success: true, 
-      id: docRef.id,
-      message: '템플릿이 생성되었습니다.' 
+      id: newTemplate.id,
+      message: '템플릿이 저장되었습니다.' 
     });
   } catch (error) {
-    console.error('템플릿 생성 오류:', error);
+    console.error('템플릿 저장 오류:', error);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
-// 템플릿 수정
-export async function PUT(request: NextRequest) {
-  try {
-    const session = await getServerSession();
-    // 임시로 인증 체크 비활성화 (테스트용)
-    // if (!session?.user?.email) {
-    //   return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    // }
-
-    const userEmail = session?.user?.email || 'test@example.com'; // 테스트용 기본값
-    const { id, name, subject, content, type } = await request.json();
-
-    if (!id || !name || !subject || !content || !type) {
-      return NextResponse.json({ error: '모든 필드가 필요합니다.' }, { status: 400 });
-    }
-
-    const templateRef = doc(db, 'users', userEmail, 'emailTemplates', id);
-    await updateDoc(templateRef, {
-      name,
-      subject,
-      content,
-      type,
-      updatedAt: new Date().toISOString()
-    });
-
-    return NextResponse.json({ 
-      success: true, 
-      message: '템플릿이 수정되었습니다.' 
-    });
-  } catch (error) {
-    console.error('템플릿 수정 오류:', error);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
-
-// 템플릿 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession();
-    // 임시로 인증 체크 비활성화 (테스트용)
-    // if (!session?.user?.email) {
-    //   return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    // }
-
-    const userEmail = session?.user?.email || 'test@example.com'; // 테스트용 기본값
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
+    const userEmail = searchParams.get('userEmail') || 'test@example.com';
+    const templateId = searchParams.get('id');
+    
+    if (!templateId) {
       return NextResponse.json({ error: '템플릿 ID가 필요합니다.' }, { status: 400 });
     }
-
-    const templateRef = doc(db, 'users', userEmail, 'emailTemplates', id);
-    await deleteDoc(templateRef);
-
+    
+    if (mockTemplates[userEmail]) {
+      const templateIndex = mockTemplates[userEmail].findIndex(template => template.id === templateId);
+      if (templateIndex !== -1) {
+        mockTemplates[userEmail].splice(templateIndex, 1);
+      }
+    }
+    
     return NextResponse.json({ 
       success: true, 
       message: '템플릿이 삭제되었습니다.' 

@@ -1,27 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { db } from '@/app/lib/firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 
-// 일정 목록 조회
+// 임시 메모리 저장소
+const mockSchedules: { [userId: string]: any[] } = {};
+
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession();
-    // 임시로 인증 체크 비활성화 (테스트용)
-    // if (!session?.user?.email) {
-    //   return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    // }
-
-    const userEmail = session?.user?.email || 'test@example.com'; // 테스트용 기본값
-    const schedulesRef = collection(db, 'users', userEmail, 'schedules');
-    const q = query(schedulesRef, orderBy('date', 'asc'));
-    const snapshot = await getDocs(q);
+    const { searchParams } = new URL(request.url);
+    const userEmail = searchParams.get('userEmail') || 'test@example.com';
     
-    const schedules = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
+    const schedules = mockSchedules[userEmail] || [];
+    
     return NextResponse.json({ schedules });
   } catch (error) {
     console.error('일정 조회 오류:', error);
@@ -29,102 +17,57 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 새 일정 생성
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
+    const { userEmail, title, date, time, description } = await request.json();
+    
+    if (!userEmail || !title || !date) {
+      return NextResponse.json({ error: '필수 필드가 누락되었습니다.' }, { status: 400 });
     }
-
-    const userEmail = session.user.email;
-    const { title, description, date, time, type } = await request.json();
-
-    if (!title || !date || !type) {
-      return NextResponse.json({ error: '제목, 날짜, 타입은 필수입니다.' }, { status: 400 });
+    
+    if (!mockSchedules[userEmail]) {
+      mockSchedules[userEmail] = [];
     }
-
-    const schedulesRef = collection(db, 'users', userEmail, 'schedules');
-    const docRef = await addDoc(schedulesRef, {
+    
+    const newSchedule = {
+      id: Math.random().toString(36).substr(2, 9),
       title,
-      description: description || '',
       date,
-      time: time || '',
-      type,
-      completed: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-
-    return NextResponse.json({ 
-      success: true, 
-      id: docRef.id,
-      message: '일정이 생성되었습니다.' 
-    });
-  } catch (error) {
-    console.error('일정 생성 오류:', error);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
-
-// 일정 수정
-export async function PUT(request: NextRequest) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
-
-    const userEmail = session.user.email;
-    const { id, title, description, date, time, type, completed } = await request.json();
-
-    if (!id) {
-      return NextResponse.json({ error: '일정 ID가 필요합니다.' }, { status: 400 });
-    }
-
-    const scheduleRef = doc(db, 'users', userEmail, 'schedules', id);
-    const updateData: any = {
-      updatedAt: new Date().toISOString()
+      time,
+      description,
+      createdAt: new Date().toISOString()
     };
-
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (date !== undefined) updateData.date = date;
-    if (time !== undefined) updateData.time = time;
-    if (type !== undefined) updateData.type = type;
-    if (completed !== undefined) updateData.completed = completed;
-
-    await updateDoc(scheduleRef, updateData);
-
+    
+    mockSchedules[userEmail].push(newSchedule);
+    
     return NextResponse.json({ 
       success: true, 
-      message: '일정이 수정되었습니다.' 
+      id: newSchedule.id,
+      message: '일정이 추가되었습니다.' 
     });
   } catch (error) {
-    console.error('일정 수정 오류:', error);
+    console.error('일정 추가 오류:', error);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
-// 일정 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
-
-    const userEmail = session.user.email;
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
+    const userEmail = searchParams.get('userEmail') || 'test@example.com';
+    const scheduleId = searchParams.get('id');
+    
+    if (!scheduleId) {
       return NextResponse.json({ error: '일정 ID가 필요합니다.' }, { status: 400 });
     }
-
-    const scheduleRef = doc(db, 'users', userEmail, 'schedules', id);
-    await deleteDoc(scheduleRef);
-
+    
+    if (mockSchedules[userEmail]) {
+      const scheduleIndex = mockSchedules[userEmail].findIndex(schedule => schedule.id === scheduleId);
+      if (scheduleIndex !== -1) {
+        mockSchedules[userEmail].splice(scheduleIndex, 1);
+      }
+    }
+    
     return NextResponse.json({ 
       success: true, 
       message: '일정이 삭제되었습니다.' 
